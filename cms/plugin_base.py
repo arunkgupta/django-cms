@@ -1,31 +1,23 @@
 # -*- coding: utf-8 -*-
 import json
+import re
 import warnings
 
-try:
-    from django.contrib.admin.options import (RenameBaseModelAdminMethods as
-                                              ModelAdminMetaClass)
-except ImportError:
-    from django.forms.widgets import (MediaDefiningClass as ModelAdminMetaClass)
-import re
-
-from cms.constants import PLUGIN_MOVE_ACTION, PLUGIN_COPY_ACTION
-from cms.utils import get_cms_setting
-from cms.utils.compat import DJANGO_1_4
-from cms.utils.compat.metaclasses import with_metaclass
-from cms.utils.placeholder import get_placeholder_conf
-from cms.utils.compat.dj import force_unicode, python_2_unicode_compatible
-from cms.exceptions import SubClassNeededError, Deprecated
-from cms.models import CMSPlugin
-from django.core.urlresolvers import reverse
+from django import forms
 from django.contrib import admin
 from django.core.exceptions import ImproperlyConfigured
-from django.forms.models import ModelForm
-from django.utils.encoding import smart_str
+from django.core.urlresolvers import reverse
+from django.utils import six
+from django.utils.encoding import force_text, python_2_unicode_compatible, smart_str
 from django.utils.translation import ugettext_lazy as _
 
+from cms.constants import PLUGIN_MOVE_ACTION, PLUGIN_COPY_ACTION
+from cms.exceptions import SubClassNeededError, Deprecated
+from cms.models import CMSPlugin
+from cms.utils import get_cms_setting
 
-class CMSPluginBaseMetaclass(ModelAdminMetaClass):
+
+class CMSPluginBaseMetaclass(forms.MediaDefiningClass):
     """
     Ensure the CMSPlugin subclasses have sane values and set some defaults if
     they're not given.
@@ -60,7 +52,7 @@ class CMSPluginBaseMetaclass(ModelAdminMetaClass):
             form_attrs = {
                 'Meta': type('Meta', (object,), form_meta_attrs)
             }
-            new_plugin.form = type('%sForm' % name, (ModelForm,), form_attrs)
+            new_plugin.form = type('%sForm' % name, (forms.ModelForm,), form_attrs)
         # Set the default fieldsets
         if not new_plugin.fieldsets:
             basic_fields = []
@@ -94,7 +86,7 @@ class CMSPluginBaseMetaclass(ModelAdminMetaClass):
 
 
 @python_2_unicode_compatible
-class CMSPluginBase(with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
+class CMSPluginBase(six.with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
 
     name = ""
     module = _("Generic")  # To be overridden in child classes
@@ -120,9 +112,11 @@ class CMSPluginBase(with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
     require_parent = False
     parent_classes = None
 
-    disable_child_plugin = False
+    disable_child_plugins = False
+    disable_child_plugin = False  # DEPRECATED: REMOVE IN CMS v3.3
 
     cache = get_cms_setting('PLUGIN_CACHE')
+    system = False
 
     opts = {}
 
@@ -134,7 +128,6 @@ class CMSPluginBase(with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
             'requires_reload': True
         },
     }
-
 
     def __init__(self, model=None, admin_site=None):
         if admin_site:
@@ -153,19 +146,69 @@ class CMSPluginBase(with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
                           'and it will be removed in version 3.2; please move'
                           'template in plugin classes', DeprecationWarning)
             return getattr(instance, 'render_template', False)
-        elif getattr(self, 'render_template', False):
-            return getattr(self, 'render_template', False)
         elif hasattr(self, 'get_render_template'):
             return self.get_render_template(context, instance, placeholder)
+        elif getattr(self, 'render_template', False):
+            return getattr(self, 'render_template', False)
+
+    @classmethod
+    def get_render_queryset(cls):
+        return cls.model._default_manager.all()
 
     def render(self, context, instance, placeholder):
         context['instance'] = instance
         context['placeholder'] = placeholder
         return context
 
+    @classmethod
+    def get_require_parent(cls, slot, page):
+        from cms.utils.placeholder import get_placeholder_conf
+
+        template = page and page.get_template() or None
+
+        # config overrides..
+        require_parent = get_placeholder_conf('require_parent', slot, template, default=cls.require_parent)
+        return require_parent
+
     @property
     def parent(self):
         return self.cms_plugin_instance.parent
+
+    def get_cache_expiration(self, request, instance, placeholder):
+        """
+        Provides hints to the placeholder, and in turn to the page for
+        determining the appropriate Cache-Control headers to add to the
+        HTTPResponse object.
+
+        Must return one of:
+            - None: This means the placeholder and the page will not even
+              consider this plugin when calculating the page expiration;
+
+            - A TZ-aware `datetime` of a specific date and time in the future
+              when this plugin's content expires;
+
+            - A `datetime.timedelta` instance indicating how long, relative to
+              the response timestamp that the content can be cached;
+
+            - An integer number of seconds that this plugin's content can be
+              cached.
+
+        There are constants are defined in `cms.constants` that may be helpful:
+            - `EXPIRE_NOW`
+            - `MAX_EXPIRATION_TTL`
+
+        An integer value of 0 (zero) or `EXPIRE_NOW` effectively means "do not
+        cache". Negative values will be treated as `EXPIRE_NOW`. Values
+        exceeding the value `MAX_EXPIRATION_TTL` will be set to that value.
+
+        Negative `timedelta` values or those greater than `MAX_EXPIRATION_TTL`
+        will also be ranged in the same manner.
+
+        Similarly, `datetime` values earlier than now will be treated as
+        `EXPIRE_NOW`. Values greater than `MAX_EXPIRATION_TTL` seconds in the
+        future will be treated as `MAX_EXPIRATION_TTL` seconds in the future.
+        """
+        return None
 
     def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
         """
@@ -230,20 +273,19 @@ class CMSPluginBase(with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
         """
         self.object_successfully_changed = True
 
-        if not DJANGO_1_4:
-            post_url_continue = reverse('admin:cms_page_edit_plugin',
-                    args=(obj._get_pk_val(),),
-                    current_app=self.admin_site.name)
-            kwargs.setdefault('post_url_continue', post_url_continue)
+        post_url_continue = reverse('admin:cms_page_edit_plugin',
+                args=(obj._get_pk_val(),),
+                current_app=self.admin_site.name)
+        kwargs.setdefault('post_url_continue', post_url_continue)
         return super(CMSPluginBase, self).response_add(request, obj, **kwargs)
 
-    def log_addition(self, request, obj):
+    def log_addition(self, request, obj, bypass=None):
         pass
 
-    def log_change(self, request, obj, message):
+    def log_change(self, request, obj, message, bypass=None):
         pass
 
-    def log_deletion(self, request, obj, object_repr):
+    def log_deletion(self, request, obj, object_repr, bypass=None):
         pass
 
     def icon_src(self, instance):
@@ -261,7 +303,7 @@ class CMSPluginBase(with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
         Return the 'alt' text to be used for an icon representing
         the plugin object in a text editor.
         """
-        return "%s - %s" % (force_unicode(self.name), force_unicode(instance))
+        return "%s - %s" % (force_text(self.name), force_text(instance))
 
     def get_fieldsets(self, request, obj=None):
         """
@@ -284,36 +326,28 @@ class CMSPluginBase(with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
         return fieldsets
 
     def get_child_classes(self, slot, page):
-        template = None
-        if page:
-            template = page.template
+        from cms.utils.placeholder import get_placeholder_conf
+
+        template = page and page.get_template() or None
 
         # config overrides..
         ph_conf = get_placeholder_conf('child_classes', slot, template, default={})
-        child_classes = ph_conf.get(self.__class__.__name__, None)
-        if child_classes is not None:
+        child_classes = ph_conf.get(self.__class__.__name__, self.child_classes)
+        if child_classes:
             return child_classes
-        if self.child_classes:
-            return self.child_classes
-        else:
-            from cms.plugin_pool import plugin_pool
-            installed_plugins = plugin_pool.get_all_plugins(slot, page)
-            return [cls.__name__ for cls in installed_plugins]
+        from cms.plugin_pool import plugin_pool
+        installed_plugins = plugin_pool.get_all_plugins(slot, page)
+        return [cls.__name__ for cls in installed_plugins]
 
     def get_parent_classes(self, slot, page):
-        template = None
-        if page:
-            template = page.template
+        from cms.utils.placeholder import get_placeholder_conf
+
+        template = page and page.get_template() or None
 
         # config overrides..
         ph_conf = get_placeholder_conf('parent_classes', slot, template, default={})
-        parent_classes = ph_conf.get(self.__class__.__name__, None)
-        if parent_classes is not None:
-            return parent_classes
-        elif self.parent_classes:
-            return self.parent_classes
-        else:
-            return None
+        parent_classes = ph_conf.get(self.__class__.__name__, self.parent_classes)
+        return parent_classes
 
     def get_action_options(self):
         return self.action_options
@@ -369,8 +403,18 @@ class CMSPluginBase(with_metaclass(CMSPluginBaseMetaclass, admin.ModelAdmin)):
 
 
 class PluginMenuItem(object):
-    def __init__(self, name, url, data, question=None):
+    def __init__(self, name, url, data, question=None, action='ajax'):
+        """
+        Creates an item in the plugin / placeholder menu
+
+        :param name: Item name (label)
+        :param url: URL the item points to. This URL will be called using POST
+        :param data: Data to be POSTed to the above URL
+        :param question: Confirmation text to be shown to the user prior to call the given URL (optional)
+        :param action: Custom action to be called on click; currently supported: 'ajax', 'ajax_add'
+        """
         self.name = name
         self.url = url
         self.data = json.dumps(data)
         self.question = question
+        self.action = action

@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from distutils.version import LooseVersion
-
 from classytags.arguments import Argument
 from classytags.core import Options, Tag
 from classytags.helpers import InclusionTag
@@ -10,19 +8,14 @@ from cms.utils.admin import get_admin_menu_item_context
 from cms.utils.permissions import get_any_page_view_permissions
 from django import template
 from django.conf import settings
-from cms.utils.compat.dj import force_unicode
+from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext
-import django
 from django.utils.translation import ugettext_lazy as _
 
 
 register = template.Library()
 
-if LooseVersion(django.get_version()) < LooseVersion('1.4'):
-    CMS_ADMIN_ICON_BASE = "%sadmin/img/admin/" % settings.STATIC_URL
-else:
-    CMS_ADMIN_ICON_BASE = "%sadmin/img/" % settings.STATIC_URL
+CMS_ADMIN_ICON_BASE = "%sadmin/img/" % settings.STATIC_URL
 
 
 class ShowAdminMenu(InclusionTag):
@@ -36,16 +29,16 @@ class ShowAdminMenu(InclusionTag):
     def get_context(self, context, page):
         request = context['request']
 
-        if context.has_key("cl"):
+        if 'cl' in context:
             filtered = context['cl'].is_filtered()
-        elif context.has_key('filtered'):
+        elif 'filtered' in context:
             filtered = context['filtered']
         language = context['preview_language']
 
 
         # following function is newly used for getting the context per item (line)
         # if something more will be required, then get_admin_menu_item_context
-        # function have to be updated. 
+        # function have to be updated.
         # This is done because item can be reloaded after some action over ajax.
         context.update(get_admin_menu_item_context(request, page, filtered, language))
         return context
@@ -70,7 +63,6 @@ class TreePublishRow(Tag):
                 cls = "published"
                 text = _("published")
         else:
-
             if language in page.languages:
                 public_pending = page.publisher_public_id and page.publisher_public.get_publisher_state(
                         language) == PUBLISHER_STATE_PENDING
@@ -84,7 +76,7 @@ class TreePublishRow(Tag):
             else:
                 cls = "empty"
                 text = _("no content")
-        return mark_safe('<span class="%s" title="%s"></span>' % (cls, force_unicode(text)))
+        return mark_safe('<span class="%s" title="%s"></span>' % (cls, force_text(text)))
 
 
 register.tag(TreePublishRow)
@@ -101,6 +93,25 @@ def is_published(page, language):
         return False
 
 
+@register.filter
+def is_dirty(page, language):
+    return page.is_dirty(language)
+
+
+@register.filter
+def all_ancestors_are_published(page, language):
+    """
+    Returns False if any of the ancestors of page (and language) are
+    unpublished, otherwise True.
+    """
+    page = page.parent
+    while page:
+        if not page.is_published(language):
+            return False
+        page = page.parent
+    return True
+
+
 class ShowLazyAdminMenu(InclusionTag):
     name = 'show_lazy_admin_menu'
     template = 'admin/cms/page/tree/lazy_child_menu.html'
@@ -112,15 +123,15 @@ class ShowLazyAdminMenu(InclusionTag):
     def get_context(self, context, page):
         request = context['request']
 
-        if context.has_key("cl"):
+        if 'cl' in context:
             filtered = context['cl'].is_filtered()
-        elif context.has_key('filtered'):
+        elif 'filtered' in context:
             filtered = context['filtered']
 
         language = context['preview_language']
         # following function is newly used for getting the context per item (line)
         # if something more will be required, then get_admin_menu_item_context
-        # function have to be updated. 
+        # function have to be updated.
         # This is done because item can be reloaded after some action over ajax.
         context.update(get_admin_menu_item_context(request, page, filtered, language))
         return context
@@ -135,7 +146,7 @@ class CleanAdminListFilter(InclusionTag):
     and not everybody
     """
     name = 'clean_admin_list_filter'
-    template = 'admin/filter.html'
+    template = 'admin/cms/page/tree/filter.html'
 
     options = Options(
         Argument('cl'),
@@ -167,20 +178,13 @@ def boolean_icon(value):
 def is_restricted(page, request):
     if get_cms_setting('PERMISSION'):
         if hasattr(page, 'permission_restricted'):
-            icon = boolean_icon(bool(page.permission_restricted))
+            text = bool(page.permission_restricted)
         else:
             all_perms = list(get_any_page_view_permissions(request, page))
-            icon = boolean_icon(bool(all_perms))
-        return mark_safe(
-            ugettext('<span>%(icon)s</span>') % {
-                'icon': icon,
-            })
+            text = bool(all_perms)
+        return text
     else:
-        icon = boolean_icon(None)
-        return mark_safe(
-            ugettext('<span>%(icon)s</span>') % {
-                'icon': icon,
-            })
+        return boolean_icon(None)
 
 
 @register.filter
@@ -224,7 +228,7 @@ class PageSubmitRow(InclusionTag):
         save_as = context['save_as']
         basic_info = context.get('advanced_settings', False)
         advanced_settings = context.get('basic_info', False)
-        language = context['language']
+        language = context.get('language', '')
         return {
             # TODO check this (old code: opts.get_ordered_objects() )
             'onclick_attrib': (opts and change
@@ -268,3 +272,46 @@ class CMSAdminIconBase(Tag):
 
 
 register.tag(CMSAdminIconBase)
+
+
+@register.inclusion_tag('cms/toolbar/plugin.html', takes_context=True)
+def render_plugin_toolbar_config(context, plugin, placeholder_slot=None):
+    page = context['request'].current_page
+    cms_plugin = plugin.get_plugin_class_instance()
+
+    if placeholder_slot is None:
+        placeholder_slot = plugin.placeholder.slot
+
+    child_classes = cms_plugin.get_child_classes(placeholder_slot, page)
+    parent_classes = cms_plugin.get_parent_classes(placeholder_slot, page)
+
+    context.update({
+        'allowed_child_classes': child_classes,
+        'allowed_parent_classes': parent_classes,
+        'instance': plugin
+    })
+    return context
+
+
+@register.inclusion_tag('admin/cms/page/plugin/submit_line.html', takes_context=True)
+def submit_row_plugin(context):
+    """
+    Displays the row of buttons for delete and save.
+    """
+    opts = context['opts']
+    change = context['change']
+    is_popup = context['is_popup']
+    save_as = context['save_as']
+    ctx = {
+        'opts': opts,
+        'show_delete_link': context.get('has_delete_permission', False) and change and context.get('show_delete', True),
+        'show_save_as_new': not is_popup and change and save_as,
+        'show_save_and_add_another': context['has_add_permission'] and not is_popup and (not save_as or context['add']),
+        'show_save_and_continue': not is_popup and context['has_change_permission'],
+        'is_popup': is_popup,
+        'show_save': True,
+        'preserved_filters': context.get('preserved_filters'),
+    }
+    if context.get('original') is not None:
+        ctx['original'] = context['original']
+    return ctx

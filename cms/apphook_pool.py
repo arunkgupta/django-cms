@@ -27,6 +27,11 @@ class ApphookPool(object):
         if app is None:
             return lambda app: self.register(app, discovering_apps)
 
+        if app.__module__.split('.')[-1] == 'cms_app':
+            warnings.warn('cms_app.py filename is deprecated, '
+                          'and it will be removed in version 3.4; '
+                          'please rename it to cms_apps.py', DeprecationWarning)
+
         if self.apphooks and not discovering_apps:
             return app
 
@@ -40,10 +45,11 @@ class ApphookPool(object):
                 'but %r does not' % app.__name__)
 
         if not hasattr(app, 'menus') and hasattr(app, 'menu'):
-            warnings.warn("You define a 'menu' attribute on CMS application %r, "
-                "but the 'menus' attribute is empty, did you make a typo?" % app.__name__)
+            warnings.warn("You define a 'menu' attribute on CMS application "
+                "%r, but the 'menus' attribute is empty, "
+                "did you make a typo?" % app.__name__)
 
-        self.apps[app.__name__] = app
+        self.apps[app.__name__] = app()
         return app
 
     def discover_apps(self):
@@ -57,7 +63,9 @@ class ApphookPool(object):
                     pass
 
         else:
+            # FIXME: Remove in 3.4
             load('cms_app')
+            load('cms_apps')
 
         self.discovered = True
 
@@ -73,7 +81,8 @@ class ApphookPool(object):
             if app.urls:
                 hooks.append((app_name, app.name))
 
-        # Unfortunately, we loose the ordering since we now have a list of tuples. Let's reorder by app_name:
+        # Unfortunately, we lose the ordering since we now have a list of
+        # tuples. Let's reorder by app_name:
         hooks = sorted(hooks, key=lambda hook: hook[1])
 
         return hooks
@@ -85,7 +94,8 @@ class ApphookPool(object):
         try:
             return self.apps[app_name]
         except KeyError:
-            # deprecated: return apphooks registered in db with urlconf name instead of apphook class name
+            # deprecated: return apphooks registered in db with urlconf name
+            # instead of apphook class name
             for app in self.apps.values():
                 if app_name in app.urls:
                     return app

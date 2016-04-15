@@ -6,7 +6,8 @@ from cms.models import Page, Title, CMSPlugin, Placeholder
 
 
 def revert_plugins(request, version_id, obj):
-    from reversion.models import Version
+    from cms.utils.reversion_hacks import Version
+
     version = get_object_or_404(Version, pk=version_id)
     revs = [related_version.object_version for related_version in version.revision.version_set.all()]
     cms_plugin_list = []
@@ -18,23 +19,22 @@ def revert_plugins(request, version_id, obj):
     for rev in revs:
         obj = rev.object
         if obj.__class__ == Placeholder:
-            placeholders[obj.pk] = obj        
+            placeholders[obj.pk] = obj
         if obj.__class__ == CMSPlugin:
             cms_plugin_list.append(obj)
         elif hasattr(obj, 'cmsplugin_ptr_id'):
             plugin_list.append(obj)
         elif obj.__class__ == Page:
             pass
-            #page = obj #Page.objects.get(pk=obj.pk)
         elif obj.__class__ == Title:
-            titles.append(obj) 
+            titles.append(obj)
         else:
             others.append(rev)
     if not page.has_change_permission(request):
         raise Http404
     current_plugins = list(CMSPlugin.objects.filter(placeholder__page=page))
     for pk, placeholder in placeholders.items():
-        # admin has already created the placeholders/ get them instead 
+        # admin has already created the placeholders/ get them instead
         try:
             placeholders[pk] = page.placeholders.get(slot=placeholder.slot)
         except Placeholder.DoesNotExist:

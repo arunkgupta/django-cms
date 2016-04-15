@@ -1,3 +1,5 @@
+.. _how-to:
+
 #############
 How-to guides
 #############
@@ -8,16 +10,19 @@ the same territory as the :doc:`/introduction/index`, but in more detail.
 .. toctree::
     :maxdepth: 2
 
-    integrate
+    install
     custom_plugins
     menus
     apphooks
+    namespaced_apphooks
     templates
     extending_page_title
     toolbar
-    using_south
     testing
     placeholders
     caching
     frontend_models
     sitemap
+    page_types
+    wizards
+    contributing

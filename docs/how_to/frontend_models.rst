@@ -6,50 +6,55 @@ Frontend editing for Page and Django models
 
 .. versionadded:: 3.0
 
-django CMS frontend editing can also be used to edit non-placeholder fields from
-the frontend, both for pages and your standard Django models.
+As well as ``PlaceholderFields``, 'ordinary' Django model fields (both on CMS Pages and your own
+Django models) can also be edited through django CMS's frontend editing interface. This is very
+convenient for the user because it saves having to switch between frontend and admin views.
 
-Using this interface, you can double click on a value of a model instance in
-the frontend and access the instance changeform in a popup window, like the page
-changeform.
+Using this interface, model instance values that can be edited show the "Double-click to edit"
+hint on hover. Double-clicking opens a pop-up window containing the change form for that model.
 
+.. note::
+
+    This interface is not currently available for touch-screen users, but will be improved in
+    future releases.
 
 .. warning::
 
-    Templatetag used by this feature mark as safe the content of the rendered
+    Template tags used by this feature mark as safe the content of the rendered
     model attribute. This may be a security risk if used on fields which may
-    hold non-trusted content. Be aware, and use the templatetags accordingly.
+    hold non-trusted content. Be aware, and use the template tags accordingly.
 
 
 .. warning::
 
     This feature is only partially compatible with django-hvad: using
     ``render_model`` with hvad-translated fields (say
-    {% render_model object 'translated_field' %} return error if the
+    ``{% render_model object 'translated_field' %}`` returns an error if the
     hvad-enabled object does not exists in the current language.
     As a workaround ``render_model_icon`` can be used instead.
 
-************
-Templatetags
-************
+.. _render_model_templatetags:
 
-This feature relies on four templatetag sharing common code:
+*************
+Template tags
+*************
 
-* :ttag:`render_model`
-* :ttag:`render_model_icon`
-* :ttag:`render_model_add`
-* :ttag:`render_model_block`
+This feature relies on four template tags sharing common code. All require that you ``{% load
+cms_tags %}`` in your template:
 
-Look at the tag-specific page for a detailed reference; in the examples
-below ``render_model`` is assumed.
+* :ttag:`render_model` (for editing a specific field)
+* :ttag:`render_model_block` (for editing any of the fields in a defined block)
+* :ttag:`render_model_icon` (for editing a field represented by another value, such as an image)
+* :ttag:`render_model_add` (for adding an instance of the specified model)
 
+Look at the tag-specific page for more detailed reference and discussion of limitations and caveats.
 
 ****************
 Page titles edit
 ****************
 
 For CMS pages you can edit the titles from the frontend; according to the
-attribute specified a overridable default field will be editable.
+attribute specified a default field, which can also be overridden, will be editable.
 
 Main title::
 
@@ -69,7 +74,7 @@ All three titles::
     {% render_model request.current_page "titles" %}
 
 
-You can always customize the editable fields by providing the
+You can always customise the editable fields by providing the
 `edit_field` parameter::
 
     {% render_model request.current_page "title" "page_title,menu_title" %}
@@ -81,7 +86,7 @@ Page menu edit
 
 By using the special keyword ``changelist`` as edit field the frontend
 editing will show the page tree; a common pattern for this is to enable
-changes in the menu by wrapping the menu templatetags:
+changes in the menu by wrapping the menu template tags:
 
 .. code-block:: html+django
 
@@ -96,36 +101,37 @@ Will render to:
 
 .. code-block:: html+django
 
-    <div class="cms_plugin cms_plugin-cms-page-changelist-1">
+    <div class="cms-plugin cms-plugin-cms-page-changelist-1">
         <h3>Menu</h3>
         <ul>
             <li><a href="/">Home</a></li>
             <li><a href="/another">another</a></li>
             [...]
     </div>
-    
+
 .. warning:
-    
+
     Be aware that depending on the layout of your menu templates, clickable
     area of the menu may completely overlap with the active area of the
     frontend editor thus preventing editing. In this case you may use
     ``{% render_model_icon %}``.
     The same conflict exists when menu template is managed by a plugin.
 
-******************
-Django models edit
-******************
+********************************
+Editing 'ordinary' Django models
+********************************
 
-For Django models you can further customize what's editable on the frontend
-and the resulting forms.
+As noted above, your own Django models can also present their fields for editing in the frontend.
+This is achieved by using the ``FrontendEditableAdminMixin`` base class.
 
-Complete changeform edit
-========================
+Note that this is only required for fields **other than** ``PlaceholderFields``.
+``PlaceholderFields`` are automatically made available for frontend editing.
 
-You need to properly setup your admin class by adding the ``FrontendEditableAdminMixin``
-mixin to the parents of your admin class (see
-:mod:`Django admin documentation <django.contrib.admin>` for further information)
-on Django admin::
+Configure the model's admin class
+=================================
+
+Configure your admin class by adding the ``FrontendEditableAdminMixin`` mixin to it (see
+:mod:`Django admin documentation <django.contrib.admin>` for general Django admin information)::
 
     from cms.admin.placeholderadmin import FrontendEditableAdminMixin
     from django.contrib import admin
@@ -134,7 +140,10 @@ on Django admin::
     class MyModelAdmin(FrontendEditableAdminMixin, admin.ModelAdmin):
         ...
 
-Then setup the templates adding ``render_model`` templatetag::
+The ordering is important: as usual, **mixins must come first**.
+
+Then set up the templates where you want to expose the model for editing, adding a ``render_model``
+template tag::
 
     {% load cms_tags %}
 
@@ -168,7 +177,7 @@ Set up the template
 -------------------
 
 Then add comma separated list of fields (or just the name of one field) to
-the templatetag::
+the template tag::
 
     {% load cms_tags %}
 
@@ -181,7 +190,7 @@ the templatetag::
 Special attributes
 ==================
 
-The ``attribute`` argument of the templatetag is not required to be a model field,
+The ``attribute`` argument of the template tag is not required to be a model field,
 property or method can also be used as target; in case of a method, it will be
 called with request as argument.
 
@@ -197,7 +206,7 @@ model-specific editing workflow.
 The custom view can be passed either as a named url (``view_url`` parameter)
 or as name of a method (or property) on the instance being edited
 (``view_method`` parameter).
-In case you provide ``view_method`` it will be called whenever the templatetag is
+In case you provide ``view_method`` it will be called whenever the template tag is
 evaluated with ``request`` as parameter.
 
 The custom view does not need to obey any specific interface; it will get
@@ -215,13 +224,13 @@ Example ``view_url``::
 
 
 Example ``view_method``::
-    
+
     class MyModel(models.Model):
         char = models.CharField(max_length=10)
-        
+
         def some_method(self, request):
             return "/some/url"
-    
+
 
     {% load cms_tags %}
 
@@ -244,7 +253,7 @@ Will render to:
 
 .. code-block:: html+django
 
-    <div class="cms_plugin cms_plugin-myapp-mymodel-changelist-1">
+    <div class="cms-plugin cms-plugin-myapp-mymodel-changelist-1">
         My Model Instance Name
     </div>
 
@@ -255,8 +264,8 @@ Will render to:
 Filters
 *******
 
-If you need to apply filters to the output value of the templatetag, add quoted
-sequence of filters as in Django :ttag:`django:filter` templatetag:
+If you need to apply filters to the output value of the template tag, add quoted
+sequence of filters as in Django :ttag:`django:filter` template tag:
 
 .. code-block:: html+django
 
@@ -272,7 +281,7 @@ sequence of filters as in Django :ttag:`django:filter` templatetag:
 Context variable
 ****************
 
-The templatetag output can be saved in a context variable for later use, using
+The template tag output can be saved in a context variable for later use, using
 the standard `as` syntax:
 
 .. code-block:: html+django

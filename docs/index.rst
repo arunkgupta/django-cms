@@ -1,40 +1,116 @@
-.. django cms documentation master file, created by
-   sphinx-quickstart on Tue Sep 15 10:47:03 2009.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. raw:: html
+
+    <style>
+        .row {clear: both}
+        .row h2  {border-bottom: 1px solid black;}
+
+        .column img {border: 1px solid black;}
+
+        @media only screen and (min-width: 1000px),
+               only screen and (min-width: 500px) and (max-width: 768px){
+
+            .column {
+                padding-left: 5px;
+                padding-right: 5px;
+                float: left;
+            }
+
+            .column3  {
+                width: 33.3%;
+            }
+
+            .column2  {
+                width: 50%;
+            }
+        }
+    </style>
+
 
 ########################
 django CMS documentation
 ########################
+
+.. image:: /images/django-cms-logo.png
+   :alt: django CMS logo
 
 ********
 Overview
 ********
 
 django CMS is a modern web publishing platform built with `Django
-<https://djangproject.com/>`_, the web application framework "for
+<https://djangoproject.com/>`_, the web application framework "for
 perfectionists with deadlines".
 
 django CMS offers out-of-the-box support for the common features you'd expect
 from a CMS, but can also be easily customised and extended by developers to
 create a site that is tailored to their precise needs.
 
-**Web content editors** looking for documentation on how to use the editing
-interface should refer to our :doc:`/user/index` section.
 
-**Web content developers** who want to learn more about django CMS, as well as
-how to install, configure and customize it for their own projects will can
-refer to :doc:`/introduction/index`, :doc:`/how_to/index`, :doc:`/topics/index`
-and :doc:`/reference/index` sections.
+.. rst-class:: clearfix row
+
+.. rst-class:: column column2
+
+:ref:`tutorials`
+=================
+
+For the new django CMS developer, from installation to creating your own addon applications.
+
+.. rst-class:: column column2
+
+:ref:`how-to`
+=============
+
+Practical step-by-step guides for the more experienced developer, covering several important topics.
+
+.. rst-class:: column column2
+
+:ref:`key-topics`
+=================
+
+Explanation and analysis of some key concepts in django CMS.
+
+.. rst-class:: column column2
+
+:ref:`reference`
+================
+
+Technical reference material, for classes, methods, APIs, commands.
+
+
+
+.. rst-class:: clearfix row
+
+**************
+Join us online
+**************
+
+django CMS is supported by a friendly and very knowledgeable community.
+
+.. rst-class:: column column3
+
+Our IRC channel, #django-cms, is on ``irc.freenode.net``. If you don't have an IRC client, you can
+`join our IRC channel using the KiwiIRC web client
+<https://kiwiirc.com/client/irc.freenode.net/django-cms>`_, which works pretty well.
+
+.. rst-class:: column column3
+
+Our `django CMS users email list <https://groups.google.com/forum/#!forum/django-cms>`_ is for **general** django CMS questions and discussion
+
+.. rst-class:: column column3
+
+Our `django CMS developers email list
+<https://groups.google.com/forum/#!forum/django-cms-developers>`_ is for discussions about the
+**development of django CMS**
+
 
 ***************
 Why django CMS?
 ***************
 
-django CMS is a battle-tested CMS platform that powers sites both large and
+django CMS is a well-tested CMS platform that powers sites both large and
 small. Here are a few of the key features:
 
-* robust internationalization (i18n) support for creating multilingual sites
+* robust internationalisation (i18n) support for creating multilingual sites
 * virtually unlimited undo history, allowing editors to revert to a previous
   version
 * front-end editing, providing rapid access to the content management interface

@@ -1,19 +1,23 @@
 # -*- coding: utf-8 -*-
-from cms.utils.conf import get_cms_setting
-from django.conf import settings
-from django.core.urlresolvers import reverse
-from django.utils.http import urlencode
-from cms.utils.compat.urls import urlparse
-from cms.utils.compat.dj import force_unicode
 import re
 
+from django.conf import settings
+from django.core.urlresolvers import reverse
+from django.utils.encoding import force_text
+from django.utils.http import urlencode
+from django.utils.six.moves.urllib.parse import urlparse
+
+import cms
+
+from cms.utils.conf import get_cms_setting
+
 # checks validity of absolute / relative url
-any_path_re = re.compile('^/?[a-zA-Z0-9_.-]+(/[a-zA-Z0-9_.-]+)*/?$') 
+any_path_re = re.compile('^/?[a-zA-Z0-9_.-]+(/[a-zA-Z0-9_.-]+)*/?$')
 
 
 def levelize_path(path):
     """Splits given path to list of paths removing latest level in each step.
-    
+
     >>> path = '/application/item/new'
     >>> levelize_path(path)
     ['/application/item/new', '/application/item', '/application']
@@ -24,21 +28,21 @@ def levelize_path(path):
 
 def urljoin(*segments):
     """Joins url segments together and appends trailing slash if required.
-    
+
     >>> urljoin('a', 'b', 'c')
     u'a/b/c/'
-    
+
     >>> urljoin('a', '//b//', 'c')
     u'a/b/c/'
-    
+
     >>> urljoin('/a', '/b/', '/c/')
     u'/a/b/c/'
-    
+
     >>> urljoin('/a', '')
     u'/a/'
     """
     url  = '/' if segments[0].startswith('/') else ''
-    url += '/'.join(filter(None, (force_unicode(s).strip('/') for s in segments)))
+    url += '/'.join(filter(None, (force_text(s).strip('/') for s in segments)))
     return url + '/' if settings.APPEND_SLASH else url
 
 
@@ -54,6 +58,10 @@ def is_media_request(request):
         else:
             return True
     return False
+
+
+def static_with_version(path):
+    return '%s?%s' % (path, cms.__version__)
 
 
 def add_url_parameters(url, *args, **params):
@@ -85,6 +93,5 @@ def admin_reverse(viewname, urlconf=None, args=None, kwargs=None, prefix=None,
         urlconf=urlconf,
         args=args,
         kwargs=kwargs,
-        prefix=prefix,
         current_app=current_app
     )

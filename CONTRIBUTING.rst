@@ -5,8 +5,7 @@ Contributing to django CMS
 Like every open-source project, django CMS is always looking for motivated
 individuals to contribute to its source code.
 
-There's more guidance on `how to contribute in our documentation <http://docs.django-cms.org/en/latest/introduction
->`_.
+There's more guidance on `how to contribute in our documentation <http://docs.django-cms.org/en/latest/introduction>`_.
 
 Key points:
 
@@ -15,7 +14,7 @@ Key points:
     If you think you have discovered a security issue in our code, please report
     it **privately**, by emailing us at `security@django-cms.org`_.
 
-        Please don't raise it on:
+        Please **do not** raise it on:
 
         * IRC
         * GitHub
@@ -31,6 +30,9 @@ Community
 People interested in developing for the django CMS should join the
 `django-cms-developers`_ mailing list as well as heading over to #django-cms on
 the `freenode`_ IRC network for help and to discuss the development.
+
+If you don't have an IRC client, you can `join our IRC channel using the KiwiIRC web client
+<https://kiwiirc.com/client/irc.freenode.net/django-cms>`_, which works pretty well.
 
 You may also be interested in following `@djangocmsstatus`_ on twitter to get
 the GitHub commits as well as the hudson build reports. There is also a

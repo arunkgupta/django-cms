@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
-
 TEMPLATE_INHERITANCE_MAGIC = 'INHERIT'
-TEMPLATE_INHERITANCE_LABEL = 'Inherit the template of the nearest ancestor'
 REFRESH_PAGE = 'REFRESH_PAGE'
 URL_CHANGE = 'URL_CHANGE'
 RIGHT = object() # this is a trick so "foo is RIGHT" will only ever work for this, same goes for LEFT.
@@ -18,3 +16,17 @@ PUBLISHER_STATE_DIRTY = 1
 PUBLISHER_STATE_PENDING = 4
 
 PAGE_TYPES_ID = "page_types"
+
+VISIBILITY_ALL = None
+VISIBILITY_USERS = 1
+VISIBILITY_ANONYMOUS = 2
+
+PAGE_USERNAME_MAX_LENGTH = 255
+
+REVISION_INITIAL_COMMENT = "Initial version."
+
+SLUG_REGEXP = '[0-9A-Za-z-_.//]+'
+
+EXPIRE_NOW = 0
+# HTTP Specification says max caching should only be up to one year.
+MAX_EXPIRATION_TTL = 365 * 24 * 3600

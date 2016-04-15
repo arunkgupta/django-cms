@@ -1,46 +1,67 @@
 ########
-AppHooks
+Apphooks
 ########
 
-Right now, our django Polls app is statically hooked into the project's
-``urls.py``. This is allright, but we can do more, by attaching applications to
+Right now, our Django Polls application is statically hooked into the project's
+``urls.py``. This is all right, but we can do more, by attaching applications to
 django CMS pages.
 
-We do this with an **AppHook**, created using a :class:`CMSApp
-<cms.app_base.CMSApp>` subclass, which tells the CMS how to include that app.
 
-AppHooks live in a file called ``cms_app.py``, so create one in your Poll
-application.
+*****************
+Create an apphook
+*****************
 
-This is the most basic example for a django CMS app::
+We do this with an **apphook**, created using a :class:`CMSApp
+<cms.app_base.CMSApp>` sub-class, which tells the CMS how to include that application.
+
+Apphooks live in a file called ``cms_apps.py``, so create one in your Polls/CMS Integration
+application, i.e. in ``polls_cms_integration``.
+
+This is the most basic example of an apphook for a django CMS application:
+
+.. code-block:: python
 
     from cms.app_base import CMSApp
     from cms.apphook_pool import apphook_pool
     from django.utils.translation import ugettext_lazy as _
 
+    class PollsApphook(CMSApp):
+        name = _("Polls Application")   # give your application a name (required)
+        urls = ["polls.urls"]           # link your app to url configuration(s)
+        app_name = "polls"
 
-    class PollsApp(CMSApp):
-        name = _("Poll App")  # give your app a name, this is required
-        urls = ["polls.urls"]  # link your app to url configuration(s)
 
-    apphook_pool.register(PollsApp)  # register your app
+    apphook_pool.register(PollsApphook)  # register the application
 
-You'll need to restart the runserver to allow the new AppHook to become
-available.
+**Restart the runserver**. This is necessary because we have created a new file containing Python
+code that won't be loaded until the server restarts. You only have to do this the first time the
+new file has been created.
 
-In the admin, create a new child page of the Home page. In its *Advanced
-settings*, choose "Polls App" from the *Application* menu, and Save.
 
-|apphooks|
+.. _apply_apphook:
 
-.. |apphooks| image:: ../images/cmsapphook.png
+***************************
+Apply the apphook to a page
+***************************
+
+Now we need to create a new page, and attach the Polls application to it through this apphook.
+
+Create and save a new page, then publish it.
+
+.. note:: Your apphook won't work until the page has been published.
+
+In its *Advanced settings*, choose "Polls Application" from the *Application* menu, and save once
+more.
+
+.. image:: /introduction/images/select-application.png
+   :alt: select the 'Polls' application
+   :width: 400
+   :align: center
 
 Refresh the page, and you'll find that the Polls application is now available
-directly from the new django CMS page. (AppHooks won't take effect until the
-server has restarted, though this is not generally an issue on the runserver,
-which can handle this automatically.)
+directly from the new django CMS page.
 
-You can now remove the inclusion of the polls urls in your project's
-``urls.py`` - it's no longer required there.
+You can now remove the mention of the Polls application (``url(r'^polls/', include('polls.urls',
+namespace='polls'))``) from your project's ``urls.py`` - it's no longer even required there.
 
 Next, we're going to install a django-CMS-compatible third-party application.

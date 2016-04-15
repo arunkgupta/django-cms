@@ -4,11 +4,10 @@ import os
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.utils import six
 from django.utils.translation import ugettext_lazy as _
+from django.utils.six.moves.urllib.parse import urljoin
 
 from cms import constants
-from cms.utils.compat.urls import urljoin
 
 
 __all__ = ['get_cms_setting']
@@ -32,12 +31,12 @@ def default(name):
 
 DEFAULTS = {
     'TEMPLATE_INHERITANCE': True,
+    'TOOLBAR_SIMPLE_STRUCTURE_MODE': True,
     'PLACEHOLDER_CONF': {},
     'PERMISSION': False,
     # Whether to use raw ID lookups for users when PERMISSION is True
     'RAW_ID_USERS': False,
     'PUBLIC_FOR': 'all',
-    'CONTENT_CACHE_DURATION': 60,
     'APPHOOKS': [],
     'TOOLBARS': [],
     'SITE_CHOICES_CACHE_KEY': 'CMS:site_choices',
@@ -56,19 +55,28 @@ DEFAULTS = {
     'UNIHANDECODE_DEFAULT_DECODER': 'diacritic',
     'MAX_PAGE_PUBLISH_REVERSIONS': 10,
     'MAX_PAGE_HISTORY_REVERSIONS': 15,
+    'TOOLBAR_ANONYMOUS_ON': True,
     'TOOLBAR_URL__EDIT_ON': 'edit',
     'TOOLBAR_URL__EDIT_OFF': 'edit_off',
     'TOOLBAR_URL__BUILD': 'build',
+    'TOOLBAR_URL__DISABLE': 'toolbar_off',
     'ADMIN_NAMESPACE': 'admin',
+    'TOOLBAR_HIDE': False,
+    'WIZARD_DEFAULT_TEMPLATE': constants.TEMPLATE_INHERITANCE_MAGIC,
+    'WIZARD_CONTENT_PLUGIN': 'TextPlugin',
+    'WIZARD_CONTENT_PLUGIN_BODY': 'body',
 }
 
 
 def get_cache_durations():
-    return {
-        'menus': getattr(settings, 'MENU_CACHE_DURATION', 60 * 60),
-        'content': get_cms_setting('CONTENT_CACHE_DURATION'),
+    """
+    Returns the setting: CMS_CACHE_DURATIONS or the defaults.
+    """
+    return getattr(settings, 'CMS_CACHE_DURATIONS', {
+        'menus': 60 * 60,
+        'content': 60,
         'permissions': 60 * 60,
-    }
+    })
 
 
 @default('CMS_MEDIA_ROOT')
@@ -96,6 +104,11 @@ def get_toolbar_url__build():
     return get_cms_setting('TOOLBAR_URL__BUILD')
 
 
+@default('CMS_TOOLBAR_URL__DISABLE')
+def get_toolbar_url__disable():
+    return get_cms_setting('TOOLBAR_URL__DISABLE')
+
+
 def get_templates():
     from cms.utils.django_load import load_from_file
     if getattr(settings, 'CMS_TEMPLATES_DIR', False):
@@ -109,7 +122,13 @@ def get_templates():
         # app_directories template loaders do
         prefix = ''
         # Relative to TEMPLATE_DIRS for filesystem loader
-        for basedir in settings.TEMPLATE_DIRS:
+
+        try:
+            path = settings.TEMPLATE_DIRS
+        except IndexError:
+            path = [template['DIRS'][0] for template in settings.TEMPLATES]
+
+        for basedir in path:
             if tpldir.find(basedir) == 0:
                 prefix = tpldir.replace(basedir + os.sep, '')
                 break
@@ -133,7 +152,7 @@ def get_templates():
     else:
         templates = list(getattr(settings, 'CMS_TEMPLATES', []))
     if get_cms_setting('TEMPLATE_INHERITANCE'):
-        templates.append((constants.TEMPLATE_INHERITANCE_MAGIC, _(constants.TEMPLATE_INHERITANCE_LABEL)))
+        templates.append((constants.TEMPLATE_INHERITANCE_MAGIC, _('Inherit the template of the nearest ancestor')))
     return templates
 
 
@@ -160,7 +179,7 @@ def _ensure_languages_settings(languages):
             defaults[key] = True
 
     for site, language_list in languages.items():
-        if not isinstance(site, six.integer_types):
+        if site != hash(site):
             raise ImproperlyConfigured(
                 "CMS_LANGUAGES can only be filled with integers (site IDs) and 'default'"
                 " for default values. %s is not a valid key." % site)
@@ -194,13 +213,13 @@ def _ensure_languages_settings(languages):
             lang_code != language_object['code']]
 
     languages['default'] = defaults
-    languages[VERIFIED] = True  # this will be busted by SettingsOverride and cause a re-check
+    languages[VERIFIED] = True  # this will be busted by @override_settings and cause a re-check
 
     return languages
 
 
 def get_languages():
-    if not isinstance(settings.SITE_ID, six.integer_types):
+    if settings.SITE_ID != hash(settings.SITE_ID):
         raise ImproperlyConfigured(
             "SITE_ID must be an integer"
         )
@@ -240,6 +259,7 @@ COMPLEX = {
     'CMS_TOOLBAR_URL__EDIT_ON': get_toolbar_url__edit_on,
     'CMS_TOOLBAR_URL__EDIT_OFF': get_toolbar_url__edit_off,
     'CMS_TOOLBAR_URL__BUILD': get_toolbar_url__build,
+    'CMS_TOOLBAR_URL__DISABLE': get_toolbar_url__disable,
 }
 
 
